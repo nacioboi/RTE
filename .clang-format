@@ -1,0 +1,10 @@
+UseTab:          Always
+TabWidth:        6
+IndentWidth:     6
+# Continuation lines will use the specified number of tabs. 
+ContinuationIndentWidth: 6
+# AlignAfterOpenBracket: Don't align
+AlignAfterOpenBracket: Align
+# AlignOperands:   true
+BinPackParameters: true
+ColumnLimit:     80
