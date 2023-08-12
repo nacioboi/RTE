@@ -38,10 +38,10 @@ def print_info(*args, **kwargs):
 	if "flush" not in kwargs:
 		kwargs['flush'] = True
 	print(*args, **kwargs)
-	_sleep_helper(0.2) ; print(".", end="", flush=True)
-	_sleep_helper(0.2) ; print(".", end="", flush=True)
-	_sleep_helper(0.2) ; print(".", end="", flush=True)
-	print() ; _sleep_helper(0.1)
+	_sleep_helper(0.075) ; print(".", end="", flush=True)
+	_sleep_helper(0.05) ; print(".", end="", flush=True)
+	_sleep_helper(0.025) ; print(".", end="", flush=True)
+	print() ; _sleep_helper(0.2)
 
 def main():
 	global info_delay_multiplier
@@ -63,14 +63,11 @@ def main():
 	except AttributeError:
 		pass
 
-	print_info("checking we are executing from the correct directory")
 	if not os.path.basename(os.getcwd()) == "source":
 		print_info("not in source directory, exiting")
 		exit(1)
 
 	os.chdir("..")
-
-	print_info("checking that all the required files and directories exist")
 
 	checks = [
 		["file", "LICENSE"],
@@ -105,28 +102,24 @@ def main():
 				exit(1)
 
 	os.makedirs(f"{BUILD_DIR}/command-helper", exist_ok=True)
-	os.makedirs(f"{BUILD_DIR}/execution-helper", exist_ok=True)
 	os.makedirs(f"{BUILD_DIR}/run-time-execute", exist_ok=True)
 	os.makedirs(f"{BUILD_DIR}/tests/test1", exist_ok=True)
 
 	os.chdir(BUILD_DIR)
 
 	if args.command == "build":
-		subprocess.check_call([
-			"gcc", GCC_ARGS, "-c", "../source/command-helper/command-helper.c", "-o", "command-helper/command-helper.o"
-		])
-		subprocess.check_call([
-			"gcc", GCC_ARGS, "-c", "../source/run-time-execute/run-time-execute.c", "-o", "run-time-execute/run-time-execute.o"
-		])
-		subprocess.check_call([
-			"ar", "rcs", "run-time-execute/librun-time-execute.a", "run-time-execute/run-time-execute.o", "command-helper/command-helper.o"
-		])
-		subprocess.check_call([
-			"gcc", GCC_ARGS, "-c", "../source/tests/test1/test.c", "-o", "tests/test1/test.o"
-		])
-		subprocess.check_call([
-			"gcc", GCC_ARGS, "tests/test1/test.o", "-o", "tests/test1/test", "-Lrun-time-execute", "-lrun-time-execute"
-		])
+		def compile_candidate(name, commands):
+			print_info(f"compiling {name}")
+			if commands[0] == "gcc": commands = [commands[0]] + GCC_ARGS + commands[1:]
+			if commands[0] == "!gcc": commands = ["gcc"] + commands[1:]
+			subprocess.check_call(commands)
+			print("\n\n")
+		
+		compile_candidate("command-helper", ["gcc", "-c", "../source/command-helper/command-helper.c", "-o", "command-helper/command-helper.o"])
+		compile_candidate("run-time-execute", ["gcc", "-c", "../source/run-time-execute/run-time-execute.c", "-o", "run-time-execute/run-time-execute.o"])
+		compile_candidate("run-time-execute", ["ar", "rcs", "run-time-execute/librun-time-execute.a", "run-time-execute/run-time-execute.o", "command-helper/command-helper.o"])
+		compile_candidate("test1", ["gcc", "-c", "../source/tests/test1/test.c", "-o", "tests/test1/test.o"])
+		compile_candidate("test1", ["!gcc", "tests/test1/test.o", "-o", "tests/test1/test", "-Lrun-time-execute", "-lrun-time-execute"])
 
 	elif args.command == "clean":
 		do_remove_all = None
