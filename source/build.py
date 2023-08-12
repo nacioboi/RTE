@@ -12,54 +12,20 @@ GCC_ARGS = [
 	"-Wstrict-prototypes", "-Wcast-align", "-Wformat-security",
 	"-Wdangling-else", "-Wdouble-promotion", "-Wformat=2", "-O3"
 ]
-COMPILER = ["gcc"] + GCC_ARGS
-
-def compile_file(input_file, output_file):
-	cmd = COMPILER + ['-c', input_file, '-o', output_file]
-	subprocess.check_call(cmd)
-
-def link_files(input_files, output_file, libs=[]):
-	cmd = COMPILER + input_files + ['-o', output_file]
-	for lib in libs:
-		cmd += ['-L' + os.path.dirname(lib), '-l' + os.path.basename(lib).split('lib')[1].split('.')[0]]
-	subprocess.check_call(cmd)
 
 def backup_build_dir():
-	os.chdir('..')
-	with tarfile.open('../backup.tar.gz', 'w:gz') as tar:
-		tar.add(BUILD_DIR)
+	with tarfile.open('../../backup.tar.gz', 'w:gz') as tar:
+		tar.add("..", arcname=os.path.basename(os.getcwd()))
 
-def clean_build_dir():
-	shutil.rmtree(BUILD_DIR)
-
-def build():
-	compile_file(
-		os.path.join("..", SOURCE_DIR, 'command-helper', 'command-helper.c'),
-		os.path.join('command-helper', 'command-helper.o')
-	)
-
-	compile_file(
-		os.path.join("..", SOURCE_DIR, 'run-time-execute', 'run-time-execute.c'),
-		os.path.join('run-time-execute', 'run-time-execute.o')
-	)
-
-	with open(os.path.join('run-time-execute', 'librun-time-execute.a'), 'wb') as f:
-		subprocess.check_call([
-			'ar', 'rcs', f.name,
-			os.path.join('run-time-execute', 'run-time-execute.o'),
-			os.path.join('command-helper', 'command-helper.o')
-		])
-
-	compile_file(
-		os.path.join("..", SOURCE_DIR, 'tests', 'test1', 'test.c'),
-		os.path.join('tests', 'test1', 'test1.o')
-	)
-	
-	link_files(
-		[os.path.join('tests', 'test1', 'test.o')],
-		os.path.join('tests', 'test1', 'test'),
-		libs=[os.path.join('run-time-execute', 'librun-time-execute.a')]
-	)
+def clean_build_dir(all_files=False):
+	if all_files:
+		subprocess.check_call(["mv", "tests/test1/test", ".."])
+	shutil.rmtree("command-helper")
+	shutil.rmtree("run-time-execute")
+	shutil.rmtree("tests")
+	if all_files:
+		os.makedirs("tests/test1")
+		subprocess.check_call(["mv", "../test", "tests/test1/"])
 
 info_delay_multiplier = 1
 def _sleep_helper(seconds):
@@ -88,14 +54,14 @@ def main():
 
 	build_parser = sub_parsers.add_parser("build", help="Build the project.", parents=[common_args])
 	clean_parser = sub_parsers.add_parser("clean", help="Remove the leftovers from the build process.", parents=[common_args])
-
 	clean_parser.add_argument("-a", "--all", action="store_true", help="Remove all the build files, including the executables.")
 
 	args = parser.parse_args()
 
 	try:
 		info_delay_multiplier = args.delay_multiplier
-	except AttributeError: pass
+	except AttributeError:
+		pass
 
 	print_info("checking we are executing from the correct directory")
 	if not os.path.basename(os.getcwd()) == "source":
@@ -130,63 +96,38 @@ def main():
 	for check in checks:
 		type, name = check
 		if type == "file":
-			dir_change = name.split("/")
-			back_num = 0
-			if len(dir_change) > 1:
-				for dir in dir_change[:-1]:
-					os.chdir(f"./{dir}")
-					back_num += 1
-			name = dir_change[-1]
-			if not name in os.listdir("."):
+			if not os.path.isfile(name):
 				print_info("file {} does not exist, exiting".format(name))
 				exit(1)
-			if not os.path.isfile(name):
-				print_info("{} is not a file, exiting".format(name))
-				exit(1)
-			for _ in range(back_num):
-				os.chdir("..")
 		elif type == "dir":
-			dir_change = name.split("/")
-			back_num = 0
-			if len(dir_change) > 1:
-				for dir in dir_change[:-1]:
-					os.chdir(f"./{dir}")
-					back_num += 1
-			name = dir_change[-1]
-			if not name in os.listdir("."):
+			if not os.path.isdir(name):
 				print_info("directory {} does not exist, exiting".format(name))
 				exit(1)
-			if not os.path.isdir(name):
-				print_info("{} is not a directory, exiting".format(name))
-				exit(1)
-			for _ in range(back_num):
-				os.chdir("..")
-	
-	if not os.path.exists(BUILD_DIR):
-		print_info("build dir does not exist, creating it")
-		os.makedirs(BUILD_DIR)
-	
-	if not os.path.isdir(os.path.join(BUILD_DIR, "command-helper")):
-		print_info("command-helper dir does not exist, creating it")
-		os.makedirs(os.path.join(BUILD_DIR, "command-helper"))
-	
-	if not os.path.isdir(os.path.join(BUILD_DIR, "run-time-execute")):
-		print_info("run-time-execute dir does not exist, creating it")
-		os.makedirs(os.path.join(BUILD_DIR, "run-time-execute"))
-	
-	if not os.path.isdir(os.path.join(BUILD_DIR, "tests")):
-		print_info("tests dir does not exist, creating it")
-		os.makedirs(os.path.join(BUILD_DIR, "tests"))
-	
-	if not os.path.isdir(os.path.join(BUILD_DIR, "tests", "test1")):
-		print_info("tests/test1 dir does not exist, creating it")
-		os.makedirs(os.path.join(BUILD_DIR, "tests", "test1"))
-	
+
+	os.makedirs(f"{BUILD_DIR}/command-helper", exist_ok=True)
+	os.makedirs(f"{BUILD_DIR}/execution-helper", exist_ok=True)
+	os.makedirs(f"{BUILD_DIR}/run-time-execute", exist_ok=True)
+	os.makedirs(f"{BUILD_DIR}/tests/test1", exist_ok=True)
+
 	os.chdir(BUILD_DIR)
 
 	if args.command == "build":
-		build()
-	
+		subprocess.check_call([
+			"gcc", GCC_ARGS, "-c", "../source/command-helper/command-helper.c", "-o", "command-helper/command-helper.o"
+		])
+		subprocess.check_call([
+			"gcc", GCC_ARGS, "-c", "../source/run-time-execute/run-time-execute.c", "-o", "run-time-execute/run-time-execute.o"
+		])
+		subprocess.check_call([
+			"ar", "rcs", "run-time-execute/librun-time-execute.a", "run-time-execute/run-time-execute.o", "command-helper/command-helper.o"
+		])
+		subprocess.check_call([
+			"gcc", GCC_ARGS, "-c", "../source/tests/test1/test.c", "-o", "tests/test1/test.o"
+		])
+		subprocess.check_call([
+			"gcc", GCC_ARGS, "tests/test1/test.o", "-o", "tests/test1/test", "-Lrun-time-execute", "-lrun-time-execute"
+		])
+
 	elif args.command == "clean":
 		do_remove_all = None
 		if args.all:
@@ -195,4 +136,4 @@ def main():
 		clean_build_dir(do_remove_all)
 
 if __name__ == "__main__":
-	main()
+ 	main()
